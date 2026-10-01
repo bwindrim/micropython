@@ -1,8 +1,4 @@
-// Minimal MicroPython gamepad state bridge.
-//
-// Bluepad32 is deliberately not included here yet. The next integration step
-// calls gamepad_bridge_set_connected() and gamepad_bridge_update() from its
-// callbacks, while Python consumes the latest complete state via read().
+// MicroPython-facing state bridge for the Bluepad32 controller host.
 
 #include <stdbool.h>
 #include <stdint.h>
@@ -11,6 +7,8 @@
 #include "py/mphal.h"
 
 #include "gamepad_bridge.h"
+
+int gamepad_bluepad_start(void);
 
 typedef struct {
     volatile bool connected;
@@ -52,10 +50,14 @@ void gamepad_bridge_clear(void) {
     MICROPY_END_ATOMIC_SECTION(atomic_state);
 }
 
-// Until Bluepad32 is linked, this merely records the request. It makes the
-// Python API stable before the Bluetooth transport is brought in.
 static mp_obj_t gamepad_start(void) {
-    gamepad_state.start_requested = true;
+    if (!gamepad_state.start_requested) {
+        int err = gamepad_bluepad_start();
+        if (err != 0) {
+            mp_raise_OSError(err);
+        }
+        gamepad_state.start_requested = true;
+    }
     return mp_const_none;
 }
 static MP_DEFINE_CONST_FUN_OBJ_0(gamepad_start_obj, gamepad_start);

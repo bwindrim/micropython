@@ -38,6 +38,7 @@ add_library(usermod_gamepad INTERFACE)
 
 target_sources(usermod_gamepad INTERFACE
     ${CMAKE_CURRENT_LIST_DIR}/modgamepad.c
+    ${CMAKE_CURRENT_LIST_DIR}/gamepad_bluepad.c
     ${GAMEPAD_BLUEPAD32_SOURCES}
 )
 

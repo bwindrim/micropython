@@ -3,7 +3,9 @@
 
 // MicroPython's BLE API and Bluepad32 share this one BTstack configuration.
 // Bluepad32 needs BR/EDR HID host support for the 8BitDo Zero 2.
+#ifndef ENABLE_BLE
 #define ENABLE_BLE
+#endif
 #ifndef ENABLE_CLASSIC
 #define ENABLE_CLASSIC
 #endif
@@ -44,6 +46,7 @@
 #define MAX_NR_RFCOMM_CHANNELS 1
 #define MAX_NR_BTSTACK_LINK_KEY_DB_MEMORY_ENTRIES 2
 #define NVM_NUM_LINK_KEYS 2
+#define NVM_NUM_DEVICE_DB_ENTRIES 4
 #define MAX_NR_BNEP_SERVICES 1
 #define MAX_NR_BNEP_CHANNELS 1
 #define MAX_NR_HFP_CONNECTIONS 1

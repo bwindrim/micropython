@@ -122,6 +122,7 @@ add_executable(${MICROPY_TARGET})
 # discovery from recursing into SDK interface libraries.
 if(MICROPY_GAMEPAD_BLUEPAD32)
     target_link_libraries(${MICROPY_TARGET}
+        pico_btstack_ble
         pico_btstack_classic
     )
 
