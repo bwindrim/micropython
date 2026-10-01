@@ -116,6 +116,24 @@ include(${MICROPY_DIR}/py/usermod.cmake)
 
 add_executable(${MICROPY_TARGET})
 
+# A Bluepad32 user C module supplies the controller host implementation.  Its
+# sources are added through USER_C_MODULES before this target exists; link the
+# Pico SDK Classic stack here, after target creation, to keep user-module
+# discovery from recursing into SDK interface libraries.
+if(MICROPY_GAMEPAD_BLUEPAD32)
+    target_link_libraries(${MICROPY_TARGET}
+        pico_btstack_classic
+    )
+
+    # GCC's bounds analyser flags a false positive in BTstack's unused HFP
+    # GSM model.  Keep -Werror enabled everywhere else.
+    set_source_files_properties(
+        ${PICO_BTSTACK_PATH}/src/classic/hfp_gsm_model.c
+        PROPERTIES
+        COMPILE_OPTIONS "-Wno-error=array-bounds"
+    )
+endif()
+
 # Provide a C-level definitions of PICO_ARM.
 # (The pico-sdk already defines PICO_RISCV when it's enabled.)
 if(PICO_ARM)

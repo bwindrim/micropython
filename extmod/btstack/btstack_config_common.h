@@ -1,49 +1,66 @@
 #ifndef MICROPY_INCLUDED_EXTMOD_BTSTACK_BTSTACK_CONFIG_COMMON_H
 #define MICROPY_INCLUDED_EXTMOD_BTSTACK_BTSTACK_CONFIG_COMMON_H
 
-// BTstack features that can be enabled
+// MicroPython's BLE API and Bluepad32 share this one BTstack configuration.
+// Bluepad32 needs BR/EDR HID host support for the 8BitDo Zero 2.
 #define ENABLE_BLE
+#ifndef ENABLE_CLASSIC
+#define ENABLE_CLASSIC
+#endif
 #define ENABLE_LE_PERIPHERAL
 #define ENABLE_LE_CENTRAL
-// #define ENABLE_CLASSIC
+#define ENABLE_LE_DATA_LENGTH_EXTENSION
+#define ENABLE_LE_PRIVACY_ADDRESS_RESOLUTION
+#define ENABLE_LE_SECURE_CONNECTIONS
+#define ENABLE_GATT_CLIENT_PAIRING
 #define ENABLE_L2CAP_LE_CREDIT_BASED_FLOW_CONTROL_MODE
+#define ENABLE_L2CAP_ENHANCED_RETRANSMISSION_MODE
+#define ENABLE_GOEP_L2CAP
+#define ENABLE_CROSS_TRANSPORT_KEY_DERIVATION
 #define ENABLE_PRINTF_HEXDUMP
-// #define ENABLE_LOG_INFO
-// #define ENABLE_LOG_DEBUG
 #define ENABLE_LOG_ERROR
+#define ENABLE_HCI_CONTROLLER_TO_HOST_FLOW_CONTROL
+#define ENABLE_SOFTWARE_AES128
+#define ENABLE_MICRO_ECC_FOR_LE_SECURE_CONNECTIONS
 
-// BTstack configuration. buffers, sizes, ...
-#define HCI_ACL_PAYLOAD_SIZE 1021
+// CYW43 shared-bus limits and host/controller flow control.
+#define HCI_ACL_PAYLOAD_SIZE 1691
+#define MAX_NR_CONTROLLER_ACL_BUFFERS 3
+#define MAX_NR_CONTROLLER_SCO_PACKETS 3
+#define HCI_HOST_ACL_PACKET_LEN 1024
+#define HCI_HOST_ACL_PACKET_NUM 3
+#define HCI_HOST_SCO_PACKET_LEN 120
+#define HCI_HOST_SCO_PACKET_NUM 3
+
+// One gamepad is sufficient for this initial MicroPython integration.
 #define MAX_NR_GATT_CLIENTS 1
 #define MAX_NR_HCI_CONNECTIONS 1
-#define MAX_NR_L2CAP_SERVICES  3
-#define MAX_NR_L2CAP_CHANNELS  3
+#define MAX_NR_HID_HOST_CONNECTIONS 1
+#define MAX_NR_HIDS_CLIENTS 1
+#define MAX_NR_L2CAP_SERVICES 3
+#define MAX_NR_L2CAP_CHANNELS 6
 #define MAX_NR_RFCOMM_MULTIPLEXERS 1
 #define MAX_NR_RFCOMM_SERVICES 1
 #define MAX_NR_RFCOMM_CHANNELS 1
-#define MAX_NR_BTSTACK_LINK_KEY_DB_MEMORY_ENTRIES  2
+#define MAX_NR_BTSTACK_LINK_KEY_DB_MEMORY_ENTRIES 2
+#define NVM_NUM_LINK_KEYS 2
 #define MAX_NR_BNEP_SERVICES 1
 #define MAX_NR_BNEP_CHANNELS 1
 #define MAX_NR_HFP_CONNECTIONS 1
 #define MAX_NR_WHITELIST_ENTRIES 1
 #define MAX_NR_SM_LOOKUP_ENTRIES 3
-#define MAX_NR_SERVICE_RECORD_ITEMS 1
+#define MAX_NR_SERVICE_RECORD_ITEMS 4
 #define MAX_NR_AVDTP_STREAM_ENDPOINTS 1
 #define MAX_NR_AVDTP_CONNECTIONS 1
 #define MAX_NR_AVRCP_CONNECTIONS 1
-
 #define MAX_NR_LE_DEVICE_DB_ENTRIES 4
 
-// Link Key DB and LE Device DB using TLV on top of Flash Sector interface
-// #define NVM_NUM_DEVICE_DB_ENTRIES 16
-
-// We don't give btstack a malloc, so use a fixed-size ATT DB.
+// We don't give BTstack a malloc, so use a fixed-size ATT DB.
 #define MAX_ATT_DB_SIZE 512
 
-// BTstack HAL configuration
+// BTstack HAL configuration.
 #define HAVE_EMBEDDED_TIME_MS
-
-// Some USB dongles take longer to respond to HCI reset (e.g. BCM20702A).
+#define HAVE_ASSERT
 #define HCI_RESET_RESEND_TIMEOUT_MS 1000
 
 #endif // MICROPY_INCLUDED_EXTMOD_BTSTACK_BTSTACK_CONFIG_COMMON_H
