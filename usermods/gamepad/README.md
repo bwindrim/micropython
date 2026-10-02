@@ -71,3 +71,15 @@ pairing, and transient connection failures preserve saved link keys. Run
 [monitor.py](monitor.py) for an ongoing identity/status/input monitor.
 Tests 5 and 7 only check startup; they exit upon scanning.
 `network`, `bluetooth` and `socket` imports are excluded.
+
+Automatic recovery after an abrupt Pico reset is not established. A controlled
+test started with an identified, reporting Zero 2, reset the Pico immediately,
+and observed five failed paging attempts over 90 seconds (HCI error 0x04).
+Power-cycling the Zero 2 still restores connection. `info()` also exposes
+`saved_peer`, `reconnect_attempts`, `reconnect_state` and `connection_error`
+(last nonzero connection/authentication status) for diagnosing retries.
+
+A shorter link-supervision timeout and a clean disconnect before software reset
+were tested and removed because neither restored recovery. The clean-disconnect
+test confirmed the controller turned off; a powered-off Zero 2 cannot be
+reconnected remotely. The firmware does not intercept `machine.reset()`.

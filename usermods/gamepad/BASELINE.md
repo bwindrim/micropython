@@ -244,3 +244,43 @@ was requested for this final flash test.
 and increasing parsed reports, without asking for a controller restart or
 pairing. Runtime imports of network, bluetooth and socket still fail as
 intended. The board is left running the final quiet firmware at the REPL.
+
+## Controlled reset audit: previous automatic-recovery claim withdrawn
+
+The user confirmed that Pico resets still require a Zero 2 power cycle. Earlier
+captures did not independently establish continuous controller power. The new
+`baseline/controlled_recovery.py` waits for connected plus a parsed report and
+immediately invokes machine.reset(), then measures recovery without user
+intervention. `baseline/serial-controlled-page-timeout.log` shows GP02 loaded,
+five retry attempts, repeated HCI page timeout (0x04), and no connection in
+90 seconds. This reproduces the limitation without an initial controller
+auto-off window. Prior successful captures therefore do not prove recovery
+after abrupt reset. Shorter supervision timeout and clean software-reset
+disconnection are being evaluated separately.
+
+The shorter Classic supervision timeout also produced five failed paging
+attempts over 90 seconds (`serial-controlled-supervision.log`). A temporary
+pre-reset disconnect hook did not restore recovery (`serial-controlled-clean-reset.log`).
+A final 30-second check (`serial-controlled-disconnect-check.log`) recorded
+watchdog scratch marker 0x47520003, proving the disconnect callback completed
+before machine.reset(). The user observed flashing, approximately one second
+of steady LED, then the Zero 2 turning off. This clean-disconnect path cannot
+restore a controller that powers itself off. The supervision and reset-hook
+experiments were removed; no reset interception remains in the RP2 port.
+
+The final firmware retains saved-peer retries and the new `info()` diagnostics
+(saving status, attempt count, FSM state, last connection/authentication error).
+The limitation is unresolved for abrupt Pico reset in this tested mode. The
+controlled test scripts eliminate the initial auto-off window; initial
+connection plus a parsed report automatically triggers the reset. No controller
+mode or firmware version was changed. Subsequent investigation should compare
+controller modes or firmware, rather than claiming these Pico retry changes
+solved recovery.
+
+Final diagnostic UF2 SHA-256:
+`5f3fb3f9d3225720c1a272317ee5d3a2a80aef48ff955f5fdf83c0afc3c94d84`.
+It was flashed, reached scanning, and loaded the saved peer. The board is left
+at the REPL with Bluetooth running. Full initial-connection/reset captures
+are archived as serial-controlled-abrupt-full.log and
+serial-controlled-disconnect-full.log. The reusable controlled_recovery.py
+now exits with failure unless RECOVERY_CONFIRMED is captured.
