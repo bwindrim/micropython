@@ -104,3 +104,6 @@
 [submodule "lib/psoc-edge/async-transfer"]
 	path = lib/psoc-edge/async-transfer
 	url = https://github.com/Infineon/async-transfer.git
+[submodule "usermods/gamepad/lib/bluepad32"]
+	path = usermods/gamepad/lib/bluepad32
+	url = https://github.com/ricardoquesada/bluepad32.git

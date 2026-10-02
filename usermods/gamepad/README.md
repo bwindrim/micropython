@@ -35,7 +35,25 @@ status 2 and clears the snapshot. `started()` and `connected()` return
 booleans. `clear()` clears the Python snapshot; it does not disconnect Bluetooth.
 `diagnose()` reads the last watchdog checkpoint, not a history of HCI events.
 
-Build the Pico W firmware with:
+Prepare dependencies from a fresh checkout, then build the Pico W firmware:
+
+```sh
+git clone --branch GamePad https://github.com/bwindrim/micropython.git
+cd micropython
+python3 usermods/gamepad/setup_dependencies.py
+```
+
+The setup script initialises only the dependencies used by this build, including
+the pinned Bluepad32 submodule, and applies the tracked compatibility patches.
+It is safe to rerun. `python3 usermods/gamepad/setup_dependencies.py --check`
+verifies the revisions and patches without fetching or changing files. Existing
+revision mismatches or conflicting edits stop setup rather than discarding work.
+Patched submodules will intentionally appear dirty; their changes are preserved
+as patch files in this parent repository. Do not commit those changes locally
+inside a submodule and update its pointer unless that commit is published in a
+repository available to other users.
+
+Build with:
 
 ```sh
 cmake -S ports/rp2 -B ports/rp2/build-RPI_PICO_W \

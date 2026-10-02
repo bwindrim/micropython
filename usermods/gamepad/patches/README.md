@@ -1,5 +1,9 @@
 # Dependency patches
 
+Run `python3 usermods/gamepad/setup_dependencies.py` from the repository root
+to initialise the pinned dependencies and apply this series. Rerunning it skips
+already applied patches. Use `--check` to verify without fetching or editing.
+
 These patches are already applied in this workspace. They preserve the
 existing dependency revisions; the newer SDK-pinned BTstack is only an isolated
 baseline comparison. Each patch applies relative to the dependency root:
