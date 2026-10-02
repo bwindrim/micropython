@@ -208,3 +208,39 @@ feature. These captures use sleeps and event handling without explicit poll.
 a 1500 ms sleep without explicit polling, idempotent start, tuple/constants,
 and ImportError for network, bluetooth and socket. The board was left at the
 normal REPL with status 4 and the identified Zero 2 connected.
+
+## Fixing restart recovery
+
+The initial link-key-only retry was insufficient. A trace exposed incoming
+legacy PIN pairing answered with Bluepad32's Wii host-address PIN, followed
+by authentication failure (0x05). The module-specific Classic patch uses
+PIN 0000 for the tested E4:17:D8 8BitDo address family. A later trace confirmed
+successful authentication and parsed gamepad input.
+
+The adapter now saves the last Classic controller address and name after
+a valid gamepad report in TLV tag GP02 (0x47503032), inside the reserved
+Bluetooth sectors. It avoids rewriting unchanged identity. It can load the
+experimental GP01 address record or a stored link key as fallback. Every
+five seconds while no controller is ready, it attempts Bluepad32's normal
+HID connection flow to that peer, using the saved name to avoid remote-name
+paging timeout collisions. Existing device slots and connection timers
+prevent overlapping retries. BLE scanning is unchanged.
+
+Bluepad32 previously dropped keys on every failed L2CAP connection, including
+transient 0x0b simultaneous-connect failures. The module-specific patch now
+drops keys only for authentication/key/security failures. The latest
+compatibility patch supports optional MicroPython connection logs. Normal
+firmware has tracing off; HCI tracing excludes link-key reply payloads.
+
+The final quiet UF2 SHA-256 is
+`47d785470080f81a3988822b57dad63be7db98bf97b9eeb59d7a50e5c93ff90a`.
+`baseline/serial-saved-peer-flash.log` records its fresh boot and automatic
+reconnection to the identified Zero 2, followed by A press (mask 2), release
+(0), and continuing parsed reports. No controller power-cycle or re-pairing
+was requested for this final flash test.
+
+`baseline/serial-final-restart.log` additionally confirms a Pico-only
+`machine.reset()` followed by automatic status 4, the same Zero 2 identity,
+and increasing parsed reports, without asking for a controller restart or
+pairing. Runtime imports of network, bluetooth and socket still fail as
+intended. The board is left running the final quiet firmware at the REPL.

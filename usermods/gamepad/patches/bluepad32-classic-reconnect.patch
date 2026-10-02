@@ -1,0 +1,40 @@
+diff --git a/src/components/bluepad32/bt/uni_bt_bredr.c b/src/components/bluepad32/bt/uni_bt_bredr.c
+index 955cc6f..64e0b35 100644
+--- a/src/components/bluepad32/bt/uni_bt_bredr.c
++++ b/src/components/bluepad32/bt/uni_bt_bredr.c
+@@ -428,8 +428,17 @@ void uni_bt_bredr_on_l2cap_channel_opened(uint16_t channel, const uint8_t* packe
+         if (status == L2CAP_CONNECTION_RESPONSE_RESULT_REFUSED_SECURITY) {
+             logi("Probably GAP-security-related issues. Set GAP security to 2\n");
+         }
+-        logi("Removing key for device: %s.\n", bd_addr_to_str(address));
+-        gap_drop_link_key_for_bd_addr(device->conn.btaddr);
++#if defined(MICROPY_GAMEPAD_BLUEPAD32)
++        // Paging timeouts and simultaneous-connect collisions do not prove
++        // that the stored key is invalid. Preserve it for the next retry.
++        if (status == ERROR_CODE_AUTHENTICATION_FAILURE || status == ERROR_CODE_PIN_OR_KEY_MISSING ||
++            status == L2CAP_CONNECTION_RESPONSE_RESULT_REFUSED_SECURITY) {
++#endif
++            logi("Removing key for device: %s.\n", bd_addr_to_str(address));
++            gap_drop_link_key_for_bd_addr(device->conn.btaddr);
++#if defined(MICROPY_GAMEPAD_BLUEPAD32)
++        }
++#endif
+         uni_hid_device_disconnect(device);
+         uni_hid_device_delete(device);
+         /* 'device' is destroyed, don't use */
+@@ -695,7 +704,14 @@ void uni_bt_bredr_on_hci_pin_code_request(uint16_t channel, const uint8_t* packe
+             (d->cod & UNI_BT_COD_MINOR_KEYBOARD_AND_MICE);                        // and is it a mouse or keyboard ?
+     }
+ 
+-    if (is_mouse_or_keyboard) {
++#if defined(MICROPY_GAMEPAD_BLUEPAD32)
++    // This Zero 2 uses legacy PIN pairing on incoming reconnections. Do not
++    // apply the Wii host-address PIN to 8BitDo's E4:17:D8 address family.
++    bool is_8bitdo = event_addr[0] == 0xe4 && event_addr[1] == 0x17 && event_addr[2] == 0xd8;
++#else
++    bool is_8bitdo = false;
++#endif
++    if (is_mouse_or_keyboard || is_8bitdo) {
+         // For mouse/keyboard, use "0000" as pins, which seems to be the expected one.
+         // "1234" could also be a valid pin.
+         logi("Using PIN code: '0000'\n");

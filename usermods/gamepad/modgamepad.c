@@ -143,6 +143,10 @@ static mp_obj_t gamepad_info(void) {
     mp_obj_dict_store(result, MP_OBJ_NEW_QSTR(MP_QSTR_transport), mp_obj_new_int(info.transport));
     mp_obj_dict_store(result, MP_OBJ_NEW_QSTR(MP_QSTR_ready), mp_obj_new_bool(info.ready));
     mp_obj_dict_store(result, MP_OBJ_NEW_QSTR(MP_QSTR_reports), mp_obj_new_int_from_uint(info.reports));
+    mp_obj_dict_store(result, MP_OBJ_NEW_QSTR(MP_QSTR_saved_peer), mp_obj_new_bool(info.saved_peer));
+    mp_obj_dict_store(result, MP_OBJ_NEW_QSTR(MP_QSTR_reconnect_attempts), mp_obj_new_int_from_uint(info.reconnect_attempts));
+    mp_obj_dict_store(result, MP_OBJ_NEW_QSTR(MP_QSTR_connection_error), mp_obj_new_int(info.connection_error));
+    mp_obj_dict_store(result, MP_OBJ_NEW_QSTR(MP_QSTR_reconnect_state), mp_obj_new_int(info.reconnect_state));
     return result;
 }
 static MP_DEFINE_CONST_FUN_OBJ_0(gamepad_info_obj, gamepad_info);

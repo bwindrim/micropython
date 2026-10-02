@@ -12,6 +12,9 @@ int cyw43_arch_init(void);
 void cyw43_arch_poll(void);
 
 #include "uni.h"
+#include "bt/uni_bt_bredr.h"
+#include "bt/uni_bt_defines.h"
+#include "btstack_tlv.h"
 
 #include "gamepad_bridge.h"
 
@@ -20,6 +23,10 @@ void cyw43_arch_poll(void);
 #include "py/mpprint.h"
 
 static void gamepad_trace_packet(uint8_t type, uint8_t in, uint8_t *packet, uint16_t len) {
+    // Never print link keys carried by the Link Key Request Reply command.
+    if (type == HCI_COMMAND_DATA_PACKET && len >= 2 && packet[0] == 0x0b && packet[1] == 0x04) {
+        return;
+    }
     if (type != HCI_COMMAND_DATA_PACKET &&
         (type != HCI_EVENT_PACKET || len == 0 ||
          (packet[0] != HCI_EVENT_COMMAND_COMPLETE && packet[0] != HCI_EVENT_COMMAND_STATUS && packet[0] != BTSTACK_EVENT_STATE))) {
@@ -90,11 +97,105 @@ static uint8_t gamepad_battery_percent(uint8_t battery) {
     return (uint8_t)(((uint16_t)battery * 100 + 127) / 255);
 }
 
+static btstack_packet_callback_registration_t gamepad_hci_events;
+
+static void gamepad_connection_event(uint8_t packet_type, uint16_t channel, uint8_t *packet, uint16_t size) {
+    (void)channel;
+    if (packet_type != HCI_EVENT_PACKET || size < 3) {
+        return;
+    }
+    uint8_t event = hci_event_packet_get_type(packet);
+    if (event == HCI_EVENT_CONNECTION_COMPLETE || event == HCI_EVENT_AUTHENTICATION_COMPLETE) {
+        if (packet[2]) {
+            gamepad_device_info.connection_error = packet[2];
+        }
+    }
+}
+
+// Keep the last working Classic peer even if its mode never creates a link key.
+// GP02 is independent of Bluepad32 properties and BTstack's pairing tags.
+#define GAMEPAD_PEER_TAG 0x47503032u
+#define GAMEPAD_LEGACY_PEER_TAG 0x47503031u
+static struct {
+    bd_addr_t address;
+    char name[HID_MAX_NAME_LEN];
+} gamepad_saved_peer;
+static bool gamepad_has_saved_peer;
+static btstack_timer_source_t gamepad_reconnect_timer;
+
+static void gamepad_load_peer(void) {
+    const btstack_tlv_t *tlv;
+    void *context;
+    btstack_tlv_get_instance(&tlv, &context);
+    gamepad_has_saved_peer = tlv && tlv->get_tag(context, GAMEPAD_PEER_TAG,
+        (uint8_t *)&gamepad_saved_peer, sizeof(gamepad_saved_peer)) == sizeof(gamepad_saved_peer);
+    if (!gamepad_has_saved_peer && tlv) {
+        gamepad_has_saved_peer = tlv->get_tag(context, GAMEPAD_LEGACY_PEER_TAG,
+            gamepad_saved_peer.address, 6) == 6;
+    }
+    if (!gamepad_has_saved_peer) {
+        btstack_link_key_iterator_t iterator;
+        if (gap_link_key_iterator_init(&iterator)) {
+            link_key_t key;
+            link_key_type_t type;
+            gamepad_has_saved_peer = gap_link_key_iterator_get_next(&iterator, gamepad_saved_peer.address, key, &type);
+            gap_link_key_iterator_done(&iterator);
+        }
+    }
+    gamepad_saved_peer.name[sizeof(gamepad_saved_peer.name) - 1] = 0;
+    if (!gamepad_saved_peer.name[0]) {
+        strcpy(gamepad_saved_peer.name, "Reconnecting gamepad");
+    }
+}
+
+static void gamepad_save_peer(uni_hid_device_t *device) {
+    // A received gamepad report proves parser setup and input work.
+    if (!device->conn.control_cid || (gamepad_has_saved_peer &&
+        bd_addr_cmp(gamepad_saved_peer.address, device->conn.btaddr) == 0 &&
+        strcmp(gamepad_saved_peer.name, device->name) == 0)) {
+        return;
+    }
+    const btstack_tlv_t *tlv;
+    void *context;
+    btstack_tlv_get_instance(&tlv, &context);
+    if (tlv) {
+        bd_addr_copy(gamepad_saved_peer.address, device->conn.btaddr);
+        memcpy(gamepad_saved_peer.name, device->name, sizeof(gamepad_saved_peer.name));
+        gamepad_saved_peer.name[sizeof(gamepad_saved_peer.name) - 1] = 0;
+        gamepad_has_saved_peer = tlv->store_tag(context, GAMEPAD_PEER_TAG,
+            (const uint8_t *)&gamepad_saved_peer, sizeof(gamepad_saved_peer)) == 0;
+    }
+}
+
+static void gamepad_retry_saved_peer(btstack_timer_source_t *timer) {
+    if (!gamepad_device_info.ready && gamepad_has_saved_peer && uni_bt_bredr_is_enabled() &&
+        !uni_hid_device_get_instance_for_address(gamepad_saved_peer.address)) {
+        uni_hid_device_t *device = uni_hid_device_create(gamepad_saved_peer.address);
+        if (device) {
+            gamepad_device_info.reconnect_attempts++;
+            uni_hid_device_set_cod(device, UNI_BT_COD_MAJOR_PERIPHERAL | UNI_BT_COD_MINOR_GAMEPAD);
+            uni_bt_conn_set_protocol(&device->conn, UNI_BT_CONN_PROTOCOL_BR_EDR);
+            // Connect HID directly; remote-name paging can outlive its timeout
+            // and collide with a simultaneous Create Connection command.
+            uni_hid_device_set_name(device, gamepad_saved_peer.name);
+            uni_bt_conn_set_state(&device->conn, UNI_BT_CONN_STATE_REMOTE_NAME_FETCHED);
+            uni_bt_bredr_process_fsm(device);
+        }
+    }
+    // Bluepad32 owns failed connection cleanup and the single device slot.
+    btstack_run_loop_set_timer(timer, 5000);
+    btstack_run_loop_add_timer(timer);
+}
+
 static void gamepad_on_init_complete(void) {
     // This callback runs in BTstack's event-loop context, so calling the
     // Bluepad32 "unsafe" scanning helper is correct here.
     gamepad_bluepad_status = 2; // HCI ready; beginning discovery
+    gamepad_load_peer();
     uni_bt_start_scanning_and_autoconnect_unsafe();
+    btstack_run_loop_set_timer_handler(&gamepad_reconnect_timer, gamepad_retry_saved_peer);
+    btstack_run_loop_set_timer(&gamepad_reconnect_timer, 5000);
+    btstack_run_loop_add_timer(&gamepad_reconnect_timer);
 }
 
 static uni_error_t gamepad_on_device_discovered(bd_addr_t addr, const char *name, uint16_t cod, uint8_t rssi) {
@@ -102,7 +203,9 @@ static uni_error_t gamepad_on_device_discovered(bd_addr_t addr, const char *name
     (void)name;
     (void)cod;
     (void)rssi;
-    gamepad_bluepad_status = 3; // acceptable controller discovered
+    if (!gamepad_device_info.ready) {
+        gamepad_bluepad_status = 3; // acceptable controller discovered
+    }
     return UNI_ERROR_SUCCESS;
 }
 
@@ -126,7 +229,8 @@ static uni_error_t gamepad_on_device_ready(uni_hid_device_t *device) {
     memcpy(gamepad_device_info.address, device->conn.btaddr, 6);
     gamepad_device_info.vendor_id = device->vendor_id;
     gamepad_device_info.product_id = device->product_id;
-    gamepad_device_info.transport = device->conn.protocol;
+    gamepad_device_info.transport = device->hids_cid ? UNI_BT_CONN_PROTOCOL_BLE :
+        (device->conn.control_cid ? UNI_BT_CONN_PROTOCOL_BR_EDR : device->conn.protocol);
     gamepad_device_info.ready = true;
     gamepad_device_info.reports = 0;
     gamepad_bluepad_status = 4;
@@ -140,6 +244,7 @@ static void gamepad_on_controller_data(uni_hid_device_t *device, uni_controller_
         return;
     }
 
+    gamepad_save_peer(device);
     gamepad_device_info.reports++;
     const uni_gamepad_t *pad = &controller->gamepad;
     // Main and miscellaneous buttons occupy separate Bluepad32 fields.
@@ -192,6 +297,8 @@ int gamepad_bluepad_start(void) {
         return err;
     }
 
+    gamepad_hci_events.callback = gamepad_connection_event;
+    hci_add_event_handler(&gamepad_hci_events);
     gamepad_bluepad_started = true;
     gamepad_bluepad_status = 1; // Bluepad32 initialized; awaiting HCI ready
     watchdog_hw->scratch[0] = 0x47500020; // complete through Bluepad32
@@ -221,4 +328,8 @@ int gamepad_bluepad_wait_ms(int timeout_ms) {
 
 void gamepad_bluepad_info_get(gamepad_info_t *info) {
     *info = gamepad_device_info;
+    info->saved_peer = gamepad_has_saved_peer;
+    uni_hid_device_t *device = gamepad_has_saved_peer ?
+        uni_hid_device_get_instance_for_address(gamepad_saved_peer.address) : NULL;
+    info->reconnect_state = device ? device->conn.state : 0;
 }

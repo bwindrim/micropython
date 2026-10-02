@@ -22,6 +22,10 @@ typedef struct {
     uint8_t transport;
     bool ready;
     uint32_t reports;
+    bool saved_peer;
+    uint32_t reconnect_attempts;
+    uint8_t connection_error;
+    uint8_t reconnect_state;
 } gamepad_info_t;
 void gamepad_bluepad_info_get(gamepad_info_t *info);
 

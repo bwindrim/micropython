@@ -1,12 +1,19 @@
 diff --git a/src/components/bluepad32/arch/uni_log_pico.c b/src/components/bluepad32/arch/uni_log_pico.c
-index 0b68a9a..a1ad619 100644
+index 0b68a9a..9e70152 100644
 --- a/src/components/bluepad32/arch/uni_log_pico.c
 +++ b/src/components/bluepad32/arch/uni_log_pico.c
-@@ -9,5 +9,12 @@
+@@ -7,7 +7,19 @@
+ #include <stdarg.h>
+ 
  #include "uni_config.h"
++#if MICROPY_GAMEPAD_TRACE
++#include "py/mpprint.h"
++#endif
  
  void uni_logv(const char* format, va_list args) {
-+#if defined(MICROPY_GAMEPAD_BLUEPAD32)
++#if MICROPY_GAMEPAD_TRACE
++    mp_vprintf(MP_PYTHON_PRINTER, format, args);
++#elif defined(MICROPY_GAMEPAD_BLUEPAD32)
 +    // Do not send Bluepad32 diagnostics through newlib's stdout: MicroPython
 +    // owns the USB CDC stream and provides a different output implementation.
 +    (void)format;
