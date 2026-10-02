@@ -228,10 +228,13 @@ void mp_hal_get_mac_ascii(int idx, size_t chr_off, size_t chr_len, char *dest) {
     }
 }
 
-// Shouldn't be used, needed by cyw43-driver in debug build.
+// Shouldn't be used, needed by cyw43-driver in debug build.  Pico SDK's
+// Bluetooth-only CYW43 architecture supplies its own stub.
+#if !defined(MICROPY_GAMEPAD_BLUEPAD32)
 uint32_t storage_read_blocks(uint8_t *dest, uint32_t block_num, uint32_t num_blocks) {
     panic_unsupported();
 }
+#endif
 
 uint32_t soft_timer_get_ms(void) {
     return mp_hal_ticks_ms();

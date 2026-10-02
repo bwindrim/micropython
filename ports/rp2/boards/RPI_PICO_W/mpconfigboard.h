@@ -4,12 +4,18 @@
 // todo: We need something to check our binary size
 
 // Enable networking.
+#if defined(MICROPY_GAMEPAD_BLUEPAD32)
+#define MICROPY_PY_NETWORK 0
+#else
 #define MICROPY_PY_NETWORK 1
+#endif
 #define MICROPY_PY_NETWORK_HOSTNAME_DEFAULT     "PicoW"
 
 // CYW43 driver configuration.
 #define CYW43_USE_SPI (1)
+#ifndef CYW43_LWIP
 #define CYW43_LWIP (1)
+#endif
 #define CYW43_GPIO (1)
 #define CYW43_SPI_PIO (1)
 

@@ -42,24 +42,51 @@ target_sources(usermod_gamepad INTERFACE
     ${GAMEPAD_BLUEPAD32_SOURCES}
 )
 
-# sdkconfig.h supplies Bluepad32's compile-time platform selection. The
-# btstack include directory is already supplied by MicroPython's RP2 port.
-target_include_directories(usermod_gamepad INTERFACE
-    ${CMAKE_CURRENT_LIST_DIR}
-    "${GAMEPAD_BLUEPAD32_ROOT}/src/components/bluepad32/include"
+# sdkconfig.h supplies Bluepad32's compile-time platform selection.  This
+# Bluetooth-only build deliberately does not enable MicroPython's BLE backend,
+# so expose the BTstack headers directly to both source and QSTR compilation.
+set(GAMEPAD_BTSTACK_INCLUDE_DIRS
+    "${CMAKE_SOURCE_DIR}/../../lib/btstack"
+    "${CMAKE_SOURCE_DIR}/../../lib/btstack/src"
+    "${CMAKE_SOURCE_DIR}/../../lib/btstack/platform/embedded"
+    "${CMAKE_SOURCE_DIR}/../../lib/btstack/3rd-party/md5"
+    "${CMAKE_SOURCE_DIR}/../../lib/btstack/3rd-party/yxml"
+    "${CMAKE_SOURCE_DIR}/../../lib/btstack/3rd-party/rijndael"
+    "${CMAKE_SOURCE_DIR}/../../lib/btstack/3rd-party/micro-ecc"
+    "${CMAKE_SOURCE_DIR}/../../lib/btstack/3rd-party/segger-rtt"
+    "${CMAKE_SOURCE_DIR}/../../lib/btstack/3rd-party/bluedroid/encoder/include"
+    "${CMAKE_SOURCE_DIR}/../../lib/btstack/3rd-party/bluedroid/decoder/include"
+)
+
+# The RP2 port's concrete BTstack config must be found before extmod's generic
+# forwarding header, which only applies when MicroPython owns BTstack.
+set(GAMEPAD_BTSTACK_CONFIG_INCLUDE_DIRS
+    "${CMAKE_SOURCE_DIR}/btstack_inc"
+    "${CMAKE_SOURCE_DIR}/../../extmod/btstack"
+)
+
+target_include_directories(usermod_gamepad BEFORE INTERFACE
+    ${GAMEPAD_BTSTACK_CONFIG_INCLUDE_DIRS}
 )
 
 target_include_directories(usermod_gamepad INTERFACE
     ${CMAKE_CURRENT_LIST_DIR}
     "${GAMEPAD_BLUEPAD32_SRC}/include"
+    "${GAMEPAD_BLUEPAD32_ROOT}/src/components/bluepad32/include"
+    ${GAMEPAD_BTSTACK_INCLUDE_DIRS}
 )
 
 # QSTR preprocessing is driven from MicroPython's `usermod` target rather
 # than from `usermod_gamepad`; expose the embedded BTstack headers there too.
 # Bluepad32's Pico property backend uses the flash-bank TLV implementation
 # that is supplied by the RP2 port's existing BTstack build.
+target_include_directories(usermod BEFORE INTERFACE
+    ${GAMEPAD_BTSTACK_CONFIG_INCLUDE_DIRS}
+)
+
 target_include_directories(usermod INTERFACE
-    "${CMAKE_SOURCE_DIR}/../../lib/btstack/platform/embedded"
+    ${GAMEPAD_BTSTACK_INCLUDE_DIRS}
+    "${CMAKE_SOURCE_DIR}"
 )
 
 # The RP2 port consumes this flag after it creates the firmware target and then

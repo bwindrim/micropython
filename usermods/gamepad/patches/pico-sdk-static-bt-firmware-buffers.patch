@@ -1,0 +1,45 @@
+diff --git a/src/rp2_common/pico_cyw43_driver/cybt_shared_bus/cybt_shared_bus.c b/src/rp2_common/pico_cyw43_driver/cybt_shared_bus/cybt_shared_bus.c
+index f256f0e..6e3a637 100644
+--- a/src/rp2_common/pico_cyw43_driver/cybt_shared_bus/cybt_shared_bus.c
++++ b/src/rp2_common/pico_cyw43_driver/cybt_shared_bus/cybt_shared_bus.c
+@@ -53,6 +53,15 @@ static cybt_result_t cybt_fw_download_prepare(uint8_t **p_write_buf, uint8_t **p
+     *p_write_buf = NULL;
+     *p_hex_buf = NULL;
+ 
++#if defined(MICROPY_GAMEPAD_BLUEPAD32)
++    // Pico SDK's wrapped malloc serialises on a mutex that is already held by
++    // MicroPython at this point.  These are one-time, small scratch buffers
++    // used solely while the CYW43 Bluetooth firmware is transferred.
++    static uint8_t write_buf[BTFW_DOWNLOAD_BLK_SIZE + BTFW_SD_ALIGN];
++    static uint8_t hex_buf[BTFW_MAX_STR_LEN];
++    *p_write_buf = write_buf;
++    *p_hex_buf = hex_buf;
++#else
+     *p_write_buf = cyw43_malloc(BTFW_DOWNLOAD_BLK_SIZE + BTFW_SD_ALIGN);
+     if (NULL == *p_write_buf) {
+         return CYBT_ERR_OUT_OF_MEMORY;
+@@ -63,11 +72,16 @@ static cybt_result_t cybt_fw_download_prepare(uint8_t **p_write_buf, uint8_t **p
+         cyw43_free(*p_write_buf);
+         return CYBT_ERR_OUT_OF_MEMORY;
+     }
++#endif
+ 
+     return CYBT_SUCCESS;
+ }
+ 
+ static cybt_result_t cybt_fw_download_finish(uint8_t *p_write_buf, uint8_t *p_hex_buf) {
++#if defined(MICROPY_GAMEPAD_BLUEPAD32)
++    (void)p_write_buf;
++    (void)p_hex_buf;
++#else
+     if (p_write_buf) {
+         cyw43_free(p_write_buf);
+     }
+@@ -75,6 +89,7 @@ static cybt_result_t cybt_fw_download_finish(uint8_t *p_write_buf, uint8_t *p_he
+     if (p_hex_buf) {
+         cyw43_free(p_hex_buf);
+     }
++#endif
+ 
+     return CYBT_SUCCESS;
+ }

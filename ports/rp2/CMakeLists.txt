@@ -93,6 +93,18 @@ endif()
 # A board may also have enabled additional components.
 set(MICROPY_SSL_MBEDTLS ON)
 
+# This option is supplied on the CMake command line for the Bluepad32 image,
+# before pico_sdk_init() selects a CYW43 driver.  Use the SDK's Bluetooth-only
+# driver/configuration, not MicroPython's Wi-Fi/lwIP-specific CYW43 driver.
+if(MICROPY_GAMEPAD_BLUEPAD32)
+    set(MICROPY_PY_LWIP OFF)
+    set(MICROPY_PY_NETWORK_CYW43 OFF)
+    set(MICROPY_PY_BLUETOOTH OFF)
+    set(MICROPY_BLUETOOTH_BTSTACK OFF)
+    set(MICROPY_PY_BLUETOOTH_CYW43 OFF)
+    set(MICROPY_FROZEN_MANIFEST ${MICROPY_DIR}/usermods/gamepad/manifest.py)
+endif()
+
 # Use the local cyw43_driver instead of the one in pico-sdk
 if (MICROPY_PY_NETWORK_CYW43)
     set(PICO_CYW43_DRIVER_PATH ${MICROPY_DIR}/lib/cyw43-driver)
@@ -114,6 +126,21 @@ pico_sdk_init()
 
 include(${MICROPY_DIR}/py/usermod.cmake)
 
+# This custom Bluepad32 image is Bluetooth-only.  Make its Pico SDK CYW43
+# architecture the sole BTstack owner instead of building MicroPython's BLE
+# backend or lwIP/CYW43 network backend alongside it.
+if(MICROPY_GAMEPAD_BLUEPAD32)
+    # Keep the final two 4 KiB flash sectors for BTstack's link-key TLV.  The
+    # MicroPython filesystem therefore ends 8 KiB earlier than the stock Pico
+    # W image and cannot overwrite paired-controller state.
+    set(MICROPY_HW_FLASH_STORAGE_BYTES 860160)
+    set(MICROPY_PY_LWIP OFF)
+    set(MICROPY_PY_NETWORK_CYW43 OFF)
+    set(MICROPY_PY_BLUETOOTH OFF)
+    set(MICROPY_BLUETOOTH_BTSTACK OFF)
+    set(MICROPY_PY_BLUETOOTH_CYW43 OFF)
+endif()
+
 add_executable(${MICROPY_TARGET})
 
 # A Bluepad32 user C module supplies the controller host implementation.  Its
@@ -121,7 +148,32 @@ add_executable(${MICROPY_TARGET})
 # Pico SDK Classic stack here, after target creation, to keep user-module
 # discovery from recursing into SDK interface libraries.
 if(MICROPY_GAMEPAD_BLUEPAD32)
+    if(MICROPY_GAMEPAD_TRACE)
+        target_compile_definitions(${MICROPY_TARGET} PRIVATE MICROPY_GAMEPAD_TRACE=1)
+    endif()
+    target_compile_definitions(${MICROPY_TARGET} PRIVATE
+        MICROPY_GAMEPAD_BLUEPAD32=1
+        PICO_FLASH_BANK_TOTAL_SIZE=8192
+        "MICROPY_HW_FLASH_STORAGE_BASE=(PICO_FLASH_SIZE_BYTES - MICROPY_HW_FLASH_STORAGE_BYTES - 8192)"
+        # RPI_PICO_W's MicroPython board header defaults this to one for its
+        # normal Wi-Fi build.  This image has no lwIP and uses the SDK's
+        # Bluetooth-only CYW43 driver.
+        CYW43_LWIP=0
+    )
+    target_link_options(${MICROPY_TARGET} PRIVATE
+        -Wl,--defsym=__micropy_flash_reserved_bytes__=8192
+    )
+    target_sources(${MICROPY_TARGET} PRIVATE
+        machine_pin_cyw43.c
+    )
+    # Force cyw43-driver to use Pico SDK's matching configuration header,
+    # rather than MicroPython's Wi-Fi-oriented cyw43_configport.h.
+    target_compile_definitions(cyw43_driver INTERFACE
+        CYW43_CONFIG_FILE=\"${PICO_SDK_PATH}/src/rp2_common/pico_cyw43_driver/include/cyw43_configport.h\"
+    )
     target_link_libraries(${MICROPY_TARGET}
+        pico_cyw43_arch_poll
+        pico_btstack_cyw43
         pico_btstack_ble
         pico_btstack_classic
     )

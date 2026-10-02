@@ -5,10 +5,13 @@
 
 #include "py/runtime.h"
 #include "py/mphal.h"
+#include "hardware/watchdog.h"
 
 #include "gamepad_bridge.h"
 
 int gamepad_bluepad_start(void);
+void gamepad_bluepad_poll(void);
+uint8_t gamepad_bluepad_status_get(void);
 
 typedef struct {
     volatile bool connected;
@@ -52,6 +55,9 @@ void gamepad_bridge_clear(void) {
 
 static mp_obj_t gamepad_start(void) {
     if (!gamepad_state.start_requested) {
+        // Retained across a watchdog reset: proves that the Python entry
+        // point itself was reached before handing off to the C host.
+        watchdog_hw->scratch[0] = 0x47500010;
         int err = gamepad_bluepad_start();
         if (err != 0) {
             mp_raise_OSError(err);
@@ -62,10 +68,32 @@ static mp_obj_t gamepad_start(void) {
 }
 static MP_DEFINE_CONST_FUN_OBJ_0(gamepad_start_obj, gamepad_start);
 
+// The Pico SDK's single-core CYW43 architecture is deliberately polled from
+// normal MicroPython execution.  This avoids sharing a background IRQ with
+// MicroPython's USB/event machinery.
+static mp_obj_t gamepad_poll(void) {
+    gamepad_bluepad_poll();
+    return mp_const_none;
+}
+static MP_DEFINE_CONST_FUN_OBJ_0(gamepad_poll_obj, gamepad_poll);
+
 static mp_obj_t gamepad_started(void) {
     return mp_obj_new_bool(gamepad_state.start_requested);
 }
 static MP_DEFINE_CONST_FUN_OBJ_0(gamepad_started_obj, gamepad_started);
+
+// 1=Bluepad32 initialized, 2=scanning, 3=controller discovered, 4=connected.
+static mp_obj_t gamepad_status(void) {
+    return mp_obj_new_int_from_uint(gamepad_bluepad_status_get());
+}
+static MP_DEFINE_CONST_FUN_OBJ_0(gamepad_status_obj, gamepad_status);
+
+// Returns the last CYW43 startup checkpoint, retained by the watchdog across
+// a reset.  This is intentionally a low-level diagnostic API.
+static mp_obj_t gamepad_diagnose(void) {
+    return mp_obj_new_int_from_uint(watchdog_hw->scratch[0]);
+}
+static MP_DEFINE_CONST_FUN_OBJ_0(gamepad_diagnose_obj, gamepad_diagnose);
 
 static mp_obj_t gamepad_connected(void) {
     return mp_obj_new_bool(gamepad_state.connected);
@@ -112,7 +140,10 @@ static MP_DEFINE_CONST_FUN_OBJ_0(gamepad_clear_obj, gamepad_clear);
 static const mp_rom_map_elem_t gamepad_module_globals_table[] = {
     { MP_ROM_QSTR(MP_QSTR___name__), MP_ROM_QSTR(MP_QSTR_gamepad) },
     { MP_ROM_QSTR(MP_QSTR_start), MP_ROM_PTR(&gamepad_start_obj) },
+    { MP_ROM_QSTR(MP_QSTR_poll), MP_ROM_PTR(&gamepad_poll_obj) },
     { MP_ROM_QSTR(MP_QSTR_started), MP_ROM_PTR(&gamepad_started_obj) },
+    { MP_ROM_QSTR(MP_QSTR_status), MP_ROM_PTR(&gamepad_status_obj) },
+    { MP_ROM_QSTR(MP_QSTR_diagnose), MP_ROM_PTR(&gamepad_diagnose_obj) },
     { MP_ROM_QSTR(MP_QSTR_connected), MP_ROM_PTR(&gamepad_connected_obj) },
     { MP_ROM_QSTR(MP_QSTR_read), MP_ROM_PTR(&gamepad_read_obj) },
     { MP_ROM_QSTR(MP_QSTR_clear), MP_ROM_PTR(&gamepad_clear_obj) },
