@@ -41,29 +41,14 @@ index dee7c00..74fbd24 100644
              logi("Unsupported gatt client event: 0x%02x\n", hci_event_gattservice_meta_get_subevent_code(packet));
              break;
 diff --git a/src/components/bluepad32/uni_init.c b/src/components/bluepad32/uni_init.c
-index 75369bd..0486b72 100644
+index 75369bd..d737fb2 100644
 --- a/src/components/bluepad32/uni_init.c
 +++ b/src/components/bluepad32/uni_init.c
-@@ -4,6 +4,13 @@
- 
- #include "uni_init.h"
- 
-+#if defined(MICROPY_GAMEPAD_BLUEPAD32)
-+#include "hardware/watchdog.h"
-+#define GAMEPAD_STAGE(n) (watchdog_hw->scratch[0] = (n))
-+#else
-+#define GAMEPAD_STAGE(n) ((void)0)
-+#endif
-+
- #include "sdkconfig.h"
- 
- #include "bt/uni_bt_allowlist.h"
-@@ -22,8 +29,13 @@
+@@ -22,8 +22,12 @@
  #define UNI_CONCAT (str1, str2) str1 str2
  
  int uni_init(int argc, const char** argv) {
 -    // Disable stdout buffering
-+    GAMEPAD_STAGE(0x47500021);
 +    // MicroPython owns USB CDC stdout and does not initialise newlib stdout
 +    // as a normal Pico-SDK stdio stream.  Changing its buffering corrupts the
 +    // REPL transport, so leave it entirely under MicroPython's control.
@@ -73,32 +58,3 @@ index 75369bd..0486b72 100644
  
      loge("Bluepad32 (C) 2016-2025 Ricardo Quesada and contributors.\n");
      loge("Version: v" UNI_VERSION_STRING "\n");
-@@ -32,20 +44,28 @@ int uni_init(int argc, const char** argv) {
-     loge("BTstack: Copyright (C) 2017 BlueKitchen GmbH.\n");
-     loge("Version: v" BTSTACK_VERSION_STRING "\n");
- 
-+    GAMEPAD_STAGE(0x47500022);
-     uni_property_init();
-+    GAMEPAD_STAGE(0x47500023);
-     uni_platform_init(argc, argv);
-+    GAMEPAD_STAGE(0x47500024);
-     uni_hid_device_setup();
- 
-     // Continue with bluetooth setup.
-+    GAMEPAD_STAGE(0x47500025);
-     uni_bt_setup();
-+    GAMEPAD_STAGE(0x47500026);
-     uni_bt_allowlist_init();
-+    GAMEPAD_STAGE(0x47500027);
-     uni_virtual_device_init();
- 
- #if CONFIG_BLUEPAD32_USB_CONSOLE_ENABLE
-     uni_console_init();
- #endif  // CONFIG_BLUEPAD32_CONSOLE_ENABLE
- 
-+    GAMEPAD_STAGE(0x47500028);
-     uni_balance_board_init();
-+    GAMEPAD_STAGE(0x47500029);
- 
-     return 0;
- }
