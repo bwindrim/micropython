@@ -2,6 +2,7 @@
 
 #include <stdbool.h>
 #include <stdint.h>
+#include <string.h>
 
 #include "py/runtime.h"
 #include "py/mphal.h"
@@ -131,6 +132,21 @@ static mp_obj_t gamepad_read(void) {
 }
 static MP_DEFINE_CONST_FUN_OBJ_0(gamepad_read_obj, gamepad_read);
 
+static mp_obj_t gamepad_info(void) {
+    gamepad_info_t info;
+    gamepad_bluepad_info_get(&info);
+    mp_obj_t result = mp_obj_new_dict(0);
+    mp_obj_dict_store(result, MP_OBJ_NEW_QSTR(MP_QSTR_name), mp_obj_new_str(info.name, strlen(info.name)));
+    mp_obj_dict_store(result, MP_OBJ_NEW_QSTR(MP_QSTR_address), mp_obj_new_bytes(info.address, 6));
+    mp_obj_dict_store(result, MP_OBJ_NEW_QSTR(MP_QSTR_vendor_id), mp_obj_new_int(info.vendor_id));
+    mp_obj_dict_store(result, MP_OBJ_NEW_QSTR(MP_QSTR_product_id), mp_obj_new_int(info.product_id));
+    mp_obj_dict_store(result, MP_OBJ_NEW_QSTR(MP_QSTR_transport), mp_obj_new_int(info.transport));
+    mp_obj_dict_store(result, MP_OBJ_NEW_QSTR(MP_QSTR_ready), mp_obj_new_bool(info.ready));
+    mp_obj_dict_store(result, MP_OBJ_NEW_QSTR(MP_QSTR_reports), mp_obj_new_int_from_uint(info.reports));
+    return result;
+}
+static MP_DEFINE_CONST_FUN_OBJ_0(gamepad_info_obj, gamepad_info);
+
 static mp_obj_t gamepad_clear(void) {
     gamepad_bridge_clear();
     return mp_const_none;
@@ -145,6 +161,7 @@ static const mp_rom_map_elem_t gamepad_module_globals_table[] = {
     { MP_ROM_QSTR(MP_QSTR_status), MP_ROM_PTR(&gamepad_status_obj) },
     { MP_ROM_QSTR(MP_QSTR_diagnose), MP_ROM_PTR(&gamepad_diagnose_obj) },
     { MP_ROM_QSTR(MP_QSTR_connected), MP_ROM_PTR(&gamepad_connected_obj) },
+    { MP_ROM_QSTR(MP_QSTR_info), MP_ROM_PTR(&gamepad_info_obj) },
     { MP_ROM_QSTR(MP_QSTR_read), MP_ROM_PTR(&gamepad_read_obj) },
     { MP_ROM_QSTR(MP_QSTR_clear), MP_ROM_PTR(&gamepad_clear_obj) },
     { MP_ROM_QSTR(MP_QSTR_DPAD_UP), MP_ROM_INT(GAMEPAD_DPAD_UP) },

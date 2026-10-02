@@ -170,3 +170,41 @@ Three small dependency patch files are saved under `patches/`: the BTstack
 buffer release, the SDK static firmware buffers, and Bluepad32's MicroPython
 stdout/init and missing-HID-event compatibility edits. Apply each in its
 respective dependency directory when recreating this workspace.
+
+## Follow-up: input and reconnection remain unverified
+
+The user subsequently reported no button input in any supplied test and an
+unconnected flashing Zero 2 after restarting. Previous input captures lacked
+device identity, so they cannot conclusively identify the Zero 2. A ready
+callback and cached connected flag are insufficient evidence of a live link.
+
+Tests 1 and 2 omitted polling, and tests 5 and 7 exited upon reaching scanning.
+The adapter now services the polling async context through MicroPython's normal
+event hook and limits event waits to 5 ms after start. Polling is guarded against
+reentry, interrupts and core 1. It remains available explicitly for application
+loops. Tests 1 and 2 now also explicitly poll. `monitor.py` prints identity,
+status, state changes and parsed report counts. `gamepad.info()` retains device
+identity after disconnect and marks `ready` false.
+
+The event-hook firmware builds successfully; USB flashing and live identity,
+input and reconnection verification are pending. CPU loops and long native
+operations that do not handle MicroPython events still require explicit polling.
+
+The event-hook UF2 (`fd27ca0bd3b9c0f5f51df0d58804e8872253b69fa1cd8fefdfbca4d0829e3f27`)
+was flashed. `baseline/serial-event-reports.log` identifies
+`8BitDo Zero 2 gamepad`, address E4:17:D8:96:00:FF, VID/PID 045e:02e0.
+Without explicit polling, A produced mask 2 and release 0; left produced
+axis_x=-512. The device power cycle produced status 2/ready false, then status
+4/ready true with the same identity and new A reports. Bluepad32's Classic path
+leaves conn.protocol unspecified (0); the diagnostic preserves that value.
+
+`baseline/serial-event-restart.log` records a Pico reset and successful startup.
+The still-powered controller remained unconnected until power-cycled; then
+it reconnected and A produced mask 2. Automatic recovery with the controller
+continuously powered is therefore still a limitation, rather than a verified
+feature. These captures use sleeps and event handling without explicit poll.
+
+`baseline/serial-event-api-check.log` verifies increasing report count during
+a 1500 ms sleep without explicit polling, idempotent start, tuple/constants,
+and ImportError for network, bluetooth and socket. The board was left at the
+normal REPL with status 4 and the identified Zero 2 connected.

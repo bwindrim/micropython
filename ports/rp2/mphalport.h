@@ -53,16 +53,30 @@
 #define MICROPY_PY_LWIP_EXIT    lwip_lock_release();
 #define MICROPY_PY_LWIP_POLL_HOOK lwip_poll_hook();
 
+#if MICROPY_GAMEPAD_BLUEPAD32
+void gamepad_bluepad_poll(void);
+int gamepad_bluepad_wait_ms(int timeout_ms);
+#define MICROPY_INTERNAL_EVENT_HOOK gamepad_bluepad_poll()
+#endif
+
+#if MICROPY_GAMEPAD_BLUEPAD32
+#define IF_GAMEPAD_WAIT(timeout) timeout = gamepad_bluepad_wait_ms(timeout)
+#else
+#define IF_GAMEPAD_WAIT(timeout) (void)0
+#endif
+
 // Port level Wait-for-Event macro
 //
 // Do not use this macro directly, include py/runtime.h and
 // call mp_event_wait_indefinite() or mp_event_wait_ms(timeout)
 #define MICROPY_INTERNAL_WFE(TIMEOUT_MS) \
     do {                                 \
-        if ((TIMEOUT_MS) < 0) { \
+        int event_timeout_ms = (TIMEOUT_MS); \
+        IF_GAMEPAD_WAIT(event_timeout_ms); \
+        if (event_timeout_ms < 0) { \
             __wfe(); \
         } else { \
-            mp_wfe_or_timeout(TIMEOUT_MS); \
+            mp_wfe_or_timeout(event_timeout_ms); \
         } \
     } while (0)
 

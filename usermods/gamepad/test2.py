@@ -11,5 +11,6 @@ gamepad.start()
 print("after start")
 
 while True:
+    gamepad.poll()
     print("connected =", gamepad.connected(), "report =", gamepad.read())
     time.sleep(1)

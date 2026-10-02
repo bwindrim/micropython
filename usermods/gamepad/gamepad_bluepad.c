@@ -2,6 +2,8 @@
 
 #include <stdbool.h>
 #include <stdint.h>
+#include <string.h>
+#include "pico.h"
 
 #include "hardware/watchdog.h"
 
@@ -43,6 +45,8 @@ static const hci_dump_t gamepad_trace = {
 #endif
 
 static bool gamepad_bluepad_started;
+static bool gamepad_bluepad_polling;
+static gamepad_info_t gamepad_device_info;
 static volatile uint8_t gamepad_bluepad_status;
 
 // Bluepad32 invokes this callback unconditionally for custom platforms.
@@ -110,13 +114,21 @@ static void gamepad_on_device_connected(uni_hid_device_t *device) {
 
 static void gamepad_on_device_disconnected(uni_hid_device_t *device) {
     (void)device;
+    gamepad_device_info.ready = false;
     gamepad_bridge_clear();
     gamepad_bluepad_status = 2; // discovery remains enabled after disconnect
 }
 
 static uni_error_t gamepad_on_device_ready(uni_hid_device_t *device) {
     // Some parsers set the controller class only on the first input report.
-    (void)device;
+    memcpy(gamepad_device_info.name, device->name, sizeof(device->name));
+    gamepad_device_info.name[sizeof(gamepad_device_info.name) - 1] = 0;
+    memcpy(gamepad_device_info.address, device->conn.btaddr, 6);
+    gamepad_device_info.vendor_id = device->vendor_id;
+    gamepad_device_info.product_id = device->product_id;
+    gamepad_device_info.transport = device->conn.protocol;
+    gamepad_device_info.ready = true;
+    gamepad_device_info.reports = 0;
     gamepad_bluepad_status = 4;
     gamepad_bridge_set_connected(true);
     return UNI_ERROR_SUCCESS;
@@ -128,6 +140,7 @@ static void gamepad_on_controller_data(uni_hid_device_t *device, uni_controller_
         return;
     }
 
+    gamepad_device_info.reports++;
     const uni_gamepad_t *pad = &controller->gamepad;
     // Main and miscellaneous buttons occupy separate Bluepad32 fields.
     const uint32_t buttons = (uint32_t)pad->buttons | ((uint32_t)pad->misc_buttons << 16);
@@ -190,9 +203,22 @@ uint8_t gamepad_bluepad_status_get(void) {
 }
 
 void gamepad_bluepad_poll(void) {
-    if (gamepad_bluepad_started) {
+    if (gamepad_bluepad_started && !gamepad_bluepad_polling && get_core_num() == 0 && !__get_current_exception()) {
+        gamepad_bluepad_polling = true;
         // The SDK async workers service CYW43, BTstack data sources, callbacks
         // and timers. This is the polling step used by its blocking run loop.
         cyw43_arch_poll();
+        gamepad_bluepad_polling = false;
     }
+}
+
+int gamepad_bluepad_wait_ms(int timeout_ms) {
+    if (gamepad_bluepad_started && get_core_num() == 0 && (timeout_ms < 0 || timeout_ms > 5)) {
+        return 5;
+    }
+    return timeout_ms;
+}
+
+void gamepad_bluepad_info_get(gamepad_info_t *info) {
+    *info = gamepad_device_info;
 }

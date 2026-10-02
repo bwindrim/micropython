@@ -8,6 +8,7 @@ print("Started:", gamepad.started())
 last = None
 
 while True:
+    gamepad.poll()
     state = gamepad.read()
     if state != last:
         connected, buttons, dpad, axis_x, axis_y, battery = state
@@ -18,4 +19,3 @@ while True:
         )
         last = state
     sleep_ms(50)
-    

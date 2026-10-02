@@ -15,6 +15,16 @@ enum {
     GAMEPAD_DPAD_RIGHT = 1 << 3,
 };
 
+typedef struct {
+    char name[241];
+    uint8_t address[6];
+    uint16_t vendor_id, product_id;
+    uint8_t transport;
+    bool ready;
+    uint32_t reports;
+} gamepad_info_t;
+void gamepad_bluepad_info_get(gamepad_info_t *info);
+
 void gamepad_bridge_set_connected(bool connected);
 void gamepad_bridge_update(uint32_t buttons, uint8_t dpad, int16_t axis_x,
     int16_t axis_y, uint8_t battery_percent);
