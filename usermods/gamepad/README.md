@@ -2,7 +2,9 @@
 
 This Pico W user C module runs Bluepad32 on the CYW43 Bluetooth controller.
 The firmware enables Classic Bluetooth and BLE while excluding Wi-Fi, lwIP,
-the network backend and MicroPython's Bluetooth backend.
+the network backend and MicroPython's Bluetooth backend. The frozen manifest
+retains RP2's filesystem boot scripts and PIO helpers so the flash filesystem
+mounts normally and remains accessible to Thonny and VS Code.
 
 ```python
 import gamepad, time
