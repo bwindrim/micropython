@@ -71,6 +71,11 @@ supplied during initial CMake configuration so SDK driver selection occurs
 before MicroPython's user-module discovery. Bluetooth pairing storage uses
 the last two flash sectors, outside the writable filesystem.
 
+Back up existing Pico files before first flashing this configuration. Bluetooth
+storage reduces the filesystem from 848 KiB (212 blocks) to 840 KiB (210 blocks).
+An existing filesystem with the old geometry cannot mount; the RP2 boot script
+formats a new filesystem, after which the backed-up files must be restored.
+
 The existing BTstack checkout requires the buffer-release backport in
 [patches/btstack-synchronous-gap-buffer.patch](patches/btstack-synchronous-gap-buffer.patch).
 It is already applied in this workspace. The SDK firmware loader also uses
