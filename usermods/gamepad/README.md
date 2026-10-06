@@ -5,6 +5,9 @@ The firmware enables Classic Bluetooth and BLE while excluding Wi-Fi, lwIP,
 the network backend and MicroPython's Bluetooth backend. The frozen manifest
 retains RP2's filesystem boot scripts and PIO helpers so the flash filesystem
 mounts normally and remains accessible to Thonny and VS Code.
+It also includes the standard MicroPython `asyncio` package and its `uasyncio`
+alias, including tasks, events, locks and timeouts. TCP connection and server
+helpers require sockets, which remain excluded from this Bluetooth-only build.
 
 ```python
 import gamepad, time
