@@ -8,6 +8,7 @@ mounts normally and remains accessible to Thonny and VS Code.
 It also includes the standard MicroPython `asyncio` package and its `uasyncio`
 alias, including tasks, events, locks and timeouts. TCP connection and server
 helpers require sockets, which remain excluded from this Bluetooth-only build.
+The standard `onewire`, `ds18x20`, `dht` and `neopixel` drivers are included.
 
 ```python
 import gamepad, time

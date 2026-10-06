@@ -2,3 +2,7 @@
 # Pico W board manifest, which also bundles networking and MicroPython BLE.
 freeze("$(PORT_DIR)/modules", ("_boot.py", "_boot_fat.py", "rp2.py"))
 include("$(MPY_DIR)/extmod/asyncio")
+require("onewire")
+require("ds18x20")
+require("dht")
+require("neopixel")
